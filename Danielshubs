@@ -1,0 +1,341 @@
+-- DANIEL'S MM2 HUB + LIVE CLOCK
+-- Blue UI, Role ESP, Gun ESP, Auto-Grab, Infinite Jump,
+-- Teleport to Gun, Minimize Button, and Live Clock
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+_G.MM2_ESP_Enabled = false
+_G.AutoGrabGun = false
+_G.GunESP_Enabled = true
+_G.InfJump_Enabled = false
+
+-- Remove old GUIs
+for _, name in ipairs({"Daniel’s script", "DeltaMM2Menu", "DeltaTimeGui"}) do
+    local old = CoreGui:FindFirstChild(name)
+    if old then
+        old:Destroy()
+    end
+end
+
+-- Find dropped gun
+local function locateGunDrop()
+    local gun = Workspace:FindFirstChild("GunDrop")
+    if gun then
+        return gun
+    end
+
+    for _, v in ipairs(Workspace:GetChildren()) do
+        if v:IsA("Folder") or v:IsA("Model") then
+            local mapGun = v:FindFirstChild("GunDrop", true)
+            if mapGun then
+                return mapGun
+            end
+        end
+    end
+
+    return nil
+end
+
+-- Player Role ESP
+local function applyESP(player)
+    local function setupHighlight(char)
+        task.wait(1)
+
+        if not char or not char.Parent then
+            return
+        end
+
+        local old = char:FindFirstChild("RoleESP")
+        if old then
+            old:Destroy()
+        end
+
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "RoleESP"
+        highlight.Parent = char
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Enabled = _G.MM2_ESP_Enabled
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+
+        task.spawn(function()
+            while char.Parent and highlight.Parent do
+                highlight.Enabled = _G.MM2_ESP_Enabled
+
+                if _G.MM2_ESP_Enabled then
+                    local backpack = player:FindFirstChild("Backpack")
+                    local hasKnife =
+                        (backpack and backpack:FindFirstChild("Knife"))
+                        or char:FindFirstChild("Knife")
+
+                    local hasGun =
+                        (backpack and backpack:FindFirstChild("Gun"))
+                        or char:FindFirstChild("Gun")
+
+                    if hasKnife then
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    elseif hasGun then
+                        highlight.FillColor = Color3.fromRGB(0, 0, 255)
+                    else
+                        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+                    end
+                end
+
+                task.wait(1)
+            end
+        end)
+    end
+
+    if player.Character then
+        task.spawn(setupHighlight, player.Character)
+    end
+
+    player.CharacterAdded:Connect(setupHighlight)
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    applyESP(player)
+end
+
+Players.PlayerAdded:Connect(applyESP)
+
+local function updateAllESPHighlights()
+    for _, player in ipairs(Players:GetPlayers()) do
+        local char = player.Character
+        local highlight = char and char:FindFirstChild("RoleESP")
+
+        if highlight then
+            highlight.Enabled = _G.MM2_ESP_Enabled
+        end
+    end
+end
+
+-- Teleport to dropped gun and return
+local function teleportToGun()
+    local character = LocalPlayer.Character
+    local gunDrop = locateGunDrop()
+
+    if character and gunDrop then
+        local originalCFrame = character:GetPivot()
+        character:PivotTo(gunDrop:GetPivot() * CFrame.new(0, 1.5, 0))
+
+        task.wait(0.25)
+        character:PivotTo(originalCFrame)
+    else
+        warn("Gun drop not found.")
+    end
+end
+
+-- Gun ESP and optional auto-grab loop
+task.spawn(function()
+    while task.wait(0.3) do
+        local gunDrop = locateGunDrop()
+
+        if gunDrop then
+            local gunHighlight = gunDrop:FindFirstChild("GunHighlight")
+
+            if _G.GunESP_Enabled then
+                if not gunHighlight then
+                    gunHighlight = Instance.new("Highlight")
+                    gunHighlight.Name = "GunHighlight"
+                    gunHighlight.FillColor = Color3.fromRGB(255, 255, 0)
+                    gunHighlight.FillTransparency = 0.2
+                    gunHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    gunHighlight.Parent = gunDrop
+                end
+            elseif gunHighlight then
+                gunHighlight:Destroy()
+            end
+        end
+    end
+end)
+
+-- Infinite jump
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfJump_Enabled then
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- Create menu
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "Daniel’s script"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local function makeDraggable(frame)
+    frame.Active = true
+    frame.Draggable = true
+end
+
+-- Main panel
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 270, 0, 330)
+MainFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 35, 75)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+makeDraggable(MainFrame)
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 10)
+Corner.Parent = MainFrame
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 120, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Text = "Daniel’s script"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.SourceSansBold
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- Close/minimize button
+local MinButton = Instance.new("TextButton")
+MinButton.Size = UDim2.new(0, 35, 0, 35)
+MinButton.Position = UDim2.new(1, -40, 0, 3)
+MinButton.Text = "❌"
+MinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinButton.TextSize = 14
+MinButton.Font = Enum.Font.SourceSansBold
+MinButton.BackgroundTransparency = 1
+MinButton.Parent = MainFrame
+
+-- LIVE CLOCK beside the X (does not overlap it)
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.Name = "TimeLabel"
+TimeLabel.Size = UDim2.new(0, 100, 0, 35)
+TimeLabel.Position = UDim2.new(1, -145, 0, 3)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TimeLabel.TextSize = 12
+TimeLabel.Font = Enum.Font.GothamBold
+TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
+TimeLabel.Text = os.date("%I:%M %p")
+TimeLabel.Parent = MainFrame
+
+task.spawn(function()
+    while ScreenGui.Parent and TimeLabel.Parent do
+        TimeLabel.Text = os.date("%I:%M %p")
+        task.wait(1)
+    end
+end)
+
+-- Minimized open button
+local OpenButton = Instance.new("TextButton")
+OpenButton.Name = "OpenButton"
+OpenButton.Size = UDim2.new(0, 100, 0, 40)
+OpenButton.Position = UDim2.new(0, 10, 1, -50)
+OpenButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+OpenButton.BorderSizePixel = 0
+OpenButton.Text = "Daniel's"
+OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenButton.TextSize = 16
+OpenButton.Font = Enum.Font.SourceSansBold
+OpenButton.Visible = false
+OpenButton.Parent = ScreenGui
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(0, 8)
+OpenCorner.Parent = OpenButton
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 255, 255)
+UIStroke.Thickness = 1.5
+UIStroke.Parent = OpenButton
+
+MinButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenButton.Visible = true
+end)
+
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenButton.Visible = false
+end)
+
+-- Content area
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, 0, 1, -45)
+ContentFrame.Position = UDim2.new(0, 0, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+-- Toggle button creator
+local function createToggleButton(text, positionY, globalVarName, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 240, 0, 45)
+    btn.Position = UDim2.new(0, 15, 0, positionY)
+    btn.BackgroundColor3 = _G[globalVarName]
+        and Color3.fromRGB(0, 180, 100)
+        or Color3.fromRGB(25, 55, 110)
+
+    btn.Text = text .. (_G[globalVarName] and " [ON]" or " [OFF]")
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 15
+    btn.Parent = ContentFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        _G[globalVarName] = not _G[globalVarName]
+
+        btn.BackgroundColor3 = _G[globalVarName]
+            and Color3.fromRGB(0, 180, 100)
+            or Color3.fromRGB(25, 55, 110)
+
+        btn.Text = text .. (_G[globalVarName] and " [ON]" or " [OFF]")
+
+        if callback then
+            callback()
+        end
+    end)
+end
+
+-- Menu buttons
+createToggleButton(
+    "Player Role ESP",
+    10,
+    "MM2_ESP_Enabled",
+    updateAllESPHighlights
+)
+
+createToggleButton("Dropped Gun ESP", 65, "GunESP_Enabled")
+createToggleButton("Auto-Grab Gun Loop", 120, "AutoGrabGun")
+createToggleButton("Infinite Jump", 175, "InfJump_Enabled")
+
+-- Teleport button
+local TpButton = Instance.new("TextButton")
+TpButton.Size = UDim2.new(0, 240, 0, 45)
+TpButton.Position = UDim2.new(0, 15, 0, 230)
+TpButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+TpButton.Text = "Teleport to Gun Drop"
+TpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TpButton.Font = Enum.Font.SourceSansBold
+TpButton.TextSize = 16
+TpButton.Parent = ContentFrame
+
+local TpCorner = Instance.new("UICorner")
+TpCorner.CornerRadius = UDim.new(0, 6)
+TpCorner.Parent = TpButton
+
+TpButton.MouseButton1Click:Connect(teleportToGun)
+
+print("Daniel's MM2 Hub loaded with live clock!")
